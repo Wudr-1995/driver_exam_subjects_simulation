@@ -1,8 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from matplotlib.animation import FuncAnimation
-import matplotlib.patches as patches
 
 class ReverseRelatedMethod:
     def __init__(self):
