@@ -7,9 +7,8 @@ from simulation_element import ReverseRelatedMethod, Car, ReverseGarage
 
 
 class PathPlanningMethod:
-    def __init__(self, car, garage, start_status, end_status, garage_type="reverse"):
+    def __init__(self, car, start_status, end_status, garage_type="reverse"):
         self.car = car
-        self.garage = garage
         self.garage_type = garage_type
         self.start_status = start_status
         self.end_status = end_status
@@ -56,6 +55,11 @@ if __name__ == '__main__':
     start_status = [0, m_garage.get_l() + m_garage.get_s() / 2, 170]
     end_status = [m_garage.get_h() + m_garage.get_w() / 2, m_garage.get_l() / 2, 70]
 
-    path_planner = PathPlanningMethod(m_car, m_garage, start_status, end_status)
+    path_planner = PathPlanningMethod(m_car, start_status, end_status)
     points = path_planner.plan_path()
-    ReverseRelatedMethod.plot_trajectory(points[0], points[1], points[2], points[3], points[4], min_r)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ReverseRelatedMethod.plot_trajectory(ax, points[0], points[1], points[2], points[3], points[4], min_r)
+    m_garage.plot(ax)
+    plt.show()

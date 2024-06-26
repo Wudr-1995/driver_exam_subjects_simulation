@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-class ReverseRelatedMethod:
+class PathPlanningRelatedMethod:
     def __init__(self):
         pass
 
@@ -24,9 +24,15 @@ class ReverseRelatedMethod:
         return pos + d * n;
 
     @staticmethod
-    def plot_trajectory(point1, point2, point3, point4, center, radius):
-        plt.plot([point1[0], point2[0]], [point1[1], point2[1]], 'b-', label='line segment 1')
+    def plot_trajectory():
+        pass
 
+class ReverseRelatedMethod(PathPlanningRelatedMethod):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def plot_trajectory(ax, point1, point2, point3, point4, center, radius):
         # get start angle of the curve
         start_angle = np.arctan2(point2[1] - center[1], point2[0] - center[0])
         end_angle = np.arctan2(point3[1] - center[1], point3[0] - center[0])
@@ -39,23 +45,25 @@ class ReverseRelatedMethod:
         arc_x = center[0] + radius * np.cos(angles)
         arc_y = center[1] + radius * np.sin(angles)
 
+        # draw the straight line from the start position to the start of the arc
+        ax.plot([point1[0], point2[0]], [point1[1], point2[1]], 'b-', label='line segment 1')
+
         # draw the arc segment
-        plt.plot(arc_x, arc_y, 'r-', label='Arc Segment')
+        ax.plot(arc_x, arc_y, 'r-', label='Arc Segment')
 
         # draw the straight line from the end of the arc to the end position
-        plt.plot([point3[0], point4[0]], [point3[1], point4[1]], 'g-', label='Line Segment 2')
+        ax.plot([point3[0], point4[0]], [point3[1], point4[1]], 'g-', label='Line Segment 2')
 
         # show the points
-        plt.scatter([point1[0], point2[0], point3[0], point4[0]], [point1[1], point2[1], point3[1], point4[1]], color='black')
+        ax.scatter([point1[0], point2[0], point3[0], point4[0]], [point1[1], point2[1], point3[1], point4[1]], color='black')
 
         # show the trajectory
-        plt.legend()
-        plt.grid(True)
-        plt.axis('equal')
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title('Trajectory Plot')
-        plt.show()
+        ax.legend()
+        ax.grid(True)
+        ax.axis('equal')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_title('Trajectory Plot')
 
 class Car:
     def __init__(self, length, width, min_r):
@@ -100,3 +108,9 @@ class ReverseGarage:
 
     def get_h(self):
         return self.h
+
+    def plot(self, ax):
+        i = 0
+        while i < (len(self.space_edge) - 1):
+            ax.plot([self.space_edge[i][0], self.space_edge[i + 1][0]], [self.space_edge[i][1], self.space_edge[i + 1][1]], color='black')
+            i += 2
