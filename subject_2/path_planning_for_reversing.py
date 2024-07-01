@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import numpy as np
 import math
 
 from simulation_element import ReverseRelatedMethod, Car, ReverseGarage
@@ -13,11 +12,18 @@ class PathPlanningMethod:
         self.start_status = start_status
         self.end_status = end_status
 
+        self.start_pos = None
+        self.turn_pos = None
+        self.turn_back_pos = None
+        self.end_pos = None
+        self.circle_center = None
+        self.tmp_radius = None
+
     def plan_path(self):
         if self.garage_type == "reverse":
-            return self.reverse_path_planning()
+            return self.reversing_path_plan()
 
-    def reverse_path_planning(self):
+    def reversing_path_plan(self):
         start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)
         end_pos = ReverseRelatedMethod.get_position_from_status(self.end_status)
 
@@ -27,39 +33,65 @@ class PathPlanningMethod:
         n_start_dir = ReverseRelatedMethod.get_n_from_status(self.start_status)
         n_end_dir = ReverseRelatedMethod.get_n_from_status(self.end_status)
 
-        para_start_pos = ReverseRelatedMethod.get_parallel_pos(start_pos, n_start_dir, self.car.min_r)
-        para_end_pos = ReverseRelatedMethod.get_parallel_pos(end_pos, n_end_dir, self.car.min_r)
+        para_start_pos = ReverseRelatedMethod.get_parallel_pos(start_pos, n_start_dir, self.car.get_efficient_min_r())
+        para_end_pos = ReverseRelatedMethod.get_parallel_pos(end_pos, n_end_dir, self.car.get_efficient_min_r())
 
         para_pos_perpen_foot = np.dot(para_end_pos - para_start_pos, start_dir) * start_dir + para_start_pos
 
         para_end_to_foot = para_pos_perpen_foot - para_end_pos
-        para_end_to_foot = 1. / np.linalg.norm(para_end_to_foot) * para_end_to_foot
 
         para_end_to_start = para_start_pos - para_end_pos
 
-        para_inter_point = para_end_pos + (np.dot(para_end_to_start, para_end_to_foot) / np.dot(end_dir, para_end_to_foot)) * end_dir # circle's center
+        para_inter_point = para_end_pos + (np.linalg.norm(para_end_to_foot)**2 / np.dot(end_dir, para_end_to_foot)) * end_dir # circle's center
         circle_center = para_inter_point
 
-        turn_pos = circle_center - min_r * n_start_dir
-        straight_pos = circle_center - min_r * n_end_dir
+        turn_pos = circle_center - self.car.get_efficient_min_r() * n_start_dir
+        turn_back_pos = circle_center - self.car.get_efficient_min_r() * n_end_dir
 
-        return start_pos, turn_pos, straight_pos, end_pos, circle_center
+        self.start_pos = start_pos
+        self.turn_pos = turn_pos
+        self.turn_back_pos = turn_back_pos
+        self.end_pos = end_pos
+        self.circle_center = circle_center
 
-if __name__ == '__main__':
-    car_l = 4.6
-    car_w = 1.8
-    min_r = 3
-    m_car = Car(car_l, car_w, min_r)
-    m_garage = ReverseGarage(car_l, car_w)
+        return start_pos, turn_pos, turn_back_pos, end_pos, circle_center
 
-    start_status = [0, m_garage.get_l() + m_garage.get_s() / 2, 170]
-    end_status = [m_garage.get_h() + m_garage.get_w() / 2, m_garage.get_l() / 2, 70]
+    def reversing_path_range(self):
+        vertexs, arrow, wheels = self.car.get_vertex()
+        theta = self.car.get_theta()
 
-    path_planner = PathPlanningMethod(m_car, start_status, end_status)
-    points = path_planner.plan_path()
+        edges = []
+        radii = []
+        for i in range(len(vertexs) - 1):
+            edges.append(self.cal_reversing_path_edge(vertexs[i], theta))
+            radii.append(self.tmp_radius)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    ReverseRelatedMethod.plot_trajectory(ax, points[0], points[1], points[2], points[3], points[4], min_r)
-    m_garage.plot(ax)
-    plt.show()
+        for i in range(len(wheels)):
+            edges.append(self.cal_reversing_path_edge(wheels[i], theta))
+            radii.append(self.tmp_radius)
+
+        return edges, radii
+
+    def cal_reversing_path_edge(self, vertex, theta):
+        dir_vec = np.array([np.cos(theta), np.sin(theta)])
+        vertex = np.array(vertex)
+
+        # the second position
+        turn_pos = vertex - np.linalg.norm(self.turn_pos - self.start_pos) * dir_vec
+
+        center_to_turn_pos = turn_pos - self.circle_center
+        delta_theta = np.deg2rad(self.end_status[2] - self.start_status[2])
+
+        # Rotation array
+        R = np.array([[np.cos(delta_theta), -np.sin(delta_theta)], \
+                      [np.sin(delta_theta), np.cos(delta_theta)]])
+
+        # the third position
+        turn_back_pos = R @ center_to_turn_pos + self.circle_center
+
+        # the last position
+        end_pos = turn_back_pos + (self.end_pos - self.turn_back_pos)
+
+        self.tmp_radius = np.linalg.norm(center_to_turn_pos)
+
+        return [vertex, turn_pos, turn_back_pos, end_pos]
