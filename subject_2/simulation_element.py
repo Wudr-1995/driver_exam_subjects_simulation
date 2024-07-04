@@ -33,10 +33,10 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         pass
 
     @staticmethod
-    def plot_trajectory(ax, point1, point2, point3, point4, center, radius, alpha=1.0):
+    def plot_trajectory(ax, points, center, radius, alpha=1.0):
         # get start angle of the curve
-        start_angle = np.arctan2(point2[1] - center[1], point2[0] - center[0])
-        end_angle = np.arctan2(point3[1] - center[1], point3[0] - center[0])
+        start_angle = np.arctan2(points[1][1] - center[1], points[1][0] - center[0])
+        end_angle = np.arctan2(points[2][1] - center[1], points[2][0] - center[0])
 
         # make sure the direction of the angles
         if start_angle > end_angle:
@@ -47,24 +47,55 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         arc_y = center[1] + radius * np.sin(angles)
 
         # draw the straight line from the start position to the start of the arc
-        ax.plot([point1[0], point2[0]], [point1[1], point2[1]], 'b-', label='line segment 1', alpha=alpha)
+        line_0, = ax.plot([points[0][0], points[1][0]], [points[0][1], points[1][1]], 'b-', label='line segment 1', alpha=alpha)
 
         # draw the arc segment
-        ax.plot(arc_x, arc_y, 'r-', label='Arc Segment', alpha=alpha)
+        arc_0, = ax.plot(arc_x, arc_y, 'r-', label='Arc Segment', alpha=alpha)
 
         # draw the straight line from the end of the arc to the end position
-        ax.plot([point3[0], point4[0]], [point3[1], point4[1]], 'g-', label='Line Segment 2', alpha=alpha)
+        line_1, = ax.plot([points[2][0], points[3][0]], [points[2][1], points[3][1]], 'g-', label='Line Segment 2', alpha=alpha)
 
         # show the points
-        ax.scatter([point1[0], point2[0], point3[0], point4[0]], [point1[1], point2[1], point3[1], point4[1]], color='black', alpha=alpha)
+        # ax.scatter([points[0][0], points[1][0], points[2][0], points[3][0]], [points[0][1], points[1][1], points[2][1], points[3][1]], color='black', alpha=alpha)
 
         # show the trajectory
         # ax.legend()
-        ax.grid(True)
-        ax.axis('equal')
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_title('Trajectory Plot')
+
+        return line_0, arc_0, line_1
+
+class ReverseTrajectoryHandler(ReverseRelatedMethod):
+    def __init__(self, ax, points, center, radius, alpha=1.0):
+        self.line_0, self.arc_0, self.line_1 = self.plot_trajectory(ax, points, center, radius, alpha)
+        self.center = center
+        self.radius = radius
+        self.points = points
+
+    def update_status(self, points, center, radius):
+        self.points = points
+        self.center = center
+        self.radius = radius
+
+    def update(self, frame):
+        self.line_0.set_xdata([self.points[0][0], self.points[1][0]])
+        self.line_0.set_ydata([self.points[0][1], self.points[1][1]])
+        self.line_1.set_xdata([self.points[2][0], self.points[3][0]])
+        self.line_1.set_ydata([self.points[2][1], self.points[3][1]])
+
+        start_angle = np.arctan2(self.points[1][1] - self.center[1], self.points[1][0] - self.center[0])
+        end_angle = np.arctan2(self.points[2][1] - self.center[1], self.points[2][0] - self.center[0])
+
+        # make sure the direction of the angles
+        if start_angle > end_angle:
+            start_angle, end_angle = end_angle, start_angle
+
+        angles = np.linspace(start_angle, end_angle, 100)
+        arc_x = self.center[0] + self.radius * np.cos(angles)
+        arc_y = self.center[1] + self.radius * np.sin(angles)
+
+        self.arc_0.set_xdata(arc_x)
+        self.arc_0.set_ydata(arc_y)
+
+        return [self.line_0, self.arc_0, self.line_1]
 
 class Car:
     def __init__(self, theta, x, y, car_type='weight_center', length=4.6, width=1.8, min_r=5, dis_axles=2.6, max_yaw=30):
@@ -116,6 +147,9 @@ class Car:
         self.line_2 = None
         self.line_3 = None
         self.arrow = None
+
+        # for recording the step status of the Car
+        self.step_status = 0
 
     def get_vertex(self):
         vertexs = None
@@ -320,6 +354,9 @@ class Car:
     def get_y(self):
         return self.y
 
+    def get_step_status(self):
+        return self.step_status
+
     def get_efficient_min_r(self):
         return self.efficient_min_r
 
@@ -334,6 +371,13 @@ class Car:
 
     def set_y(self, y):
         self.y = y
+
+    def set_step_status(self, step_status):
+        if self.step_status < step_status:
+            self.step_status = step_status
+
+    def reset_status(self):
+        self.step_status = 0
 
     def set_velocity(self, velocity):
         self.velocity = velocity
@@ -391,35 +435,3 @@ class ReverseGarage:
             ax.plot([self.space_edge[i][0], self.space_edge[i + 1][0]], [self.space_edge[i][1], self.space_edge[i + 1][1]], color='black')
             i += 2
 
-class CarController:
-    def __init__(self, car, fig, ax):
-        self.car = car
-        self.velocity = 0.02
-        self.fig = fig
-        self.ax = ax
-        self.car.plot(self.ax)
-        self.fig.canvas.mpl_connect('key_press_event', self.press_key)
-        self.fig.canvas.mpl_connect('key_release_event', self.release_key)
-        self.ani = animation.FuncAnimation(self.fig, self.car.update, frames=np.arange(0, 100), interval=50, blit=True)
-
-    def press_key(self, event):
-        if event.key == 'up':
-            self.car.set_reversing_status(1)
-            self.car.set_velocity(self.velocity)
-        elif event.key == 'down':
-            self.car.set_reversing_status(-1)
-            self.car.set_velocity(self.velocity)
-        elif event.key == 'right':
-            self.car.set_right_status(1)
-        elif event.key == 'left':
-            self.car.set_left_status(1)
-
-    def release_key(self, event):
-        if event.key == 'up':
-            self.car.set_velocity(0)
-        elif event.key == 'down':
-            self.car.set_velocity(0)
-        elif event.key == 'right':
-            self.car.set_right_status(0)
-        elif event.key == 'left':
-            self.car.set_left_status(0)

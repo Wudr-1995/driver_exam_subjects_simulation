@@ -19,11 +19,23 @@ class PathPlanningMethod:
         self.circle_center = None
         self.tmp_radius = None
 
+    def set_status(self, start_status, end_status):
+        self.start_status = start_status
+        self.end_status = end_status
+
     def plan_path(self):
         if self.garage_type == "reverse":
             return self.reversing_path_plan()
 
-    def reversing_path_plan(self):
+    def reversing_path_plan(self, current_step):
+        if current_step == 0:
+            return reversing_path_plan_step_0()
+        elif current_step == 1:
+            return reversing_path_plan_step_1()
+        else:
+            return reversing_path_plan_step_2()
+
+    def reversing_path_plan_step_0(self):
         start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)
         end_pos = ReverseRelatedMethod.get_position_from_status(self.end_status)
 
@@ -56,12 +68,23 @@ class PathPlanningMethod:
 
         return start_pos, turn_pos, turn_back_pos, end_pos, circle_center
 
+    def reversing_path_plan_step_1(self):
+        start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)
+        end_pos = ReverseRelatedMethod.get_position_from_status(self.end_status)
+
+        start_dir = ReverseRelatedMethod.get_direction_from_status(self.start_status)
+        end_dir = ReverseRelatedMethod.get_direction_from_status(self.end_status)
+
+        n_start_dir = ReverseRelatedMethod.get_n_from_status(self.start_status)
+        n_end_dir = ReverseRelatedMethod.get_n_from_status(self.end_status)
+
     def reversing_path_range(self):
         vertexs, arrow, wheels = self.car.get_vertex()
         theta = self.car.get_theta()
 
         edges = []
         radii = []
+        '''
         for i in range(len(vertexs) - 1):
             edges.append(self.cal_reversing_path_edge(vertexs[i], theta))
             radii.append(self.tmp_radius)
@@ -69,6 +92,14 @@ class PathPlanningMethod:
         for i in range(len(wheels)):
             edges.append(self.cal_reversing_path_edge(wheels[i], theta))
             radii.append(self.tmp_radius)
+        '''
+
+        edges.append(self.cal_reversing_path_edge(vertexs[2], theta))
+        radii.append(self.tmp_radius)
+        edges.append(self.cal_reversing_path_edge(vertexs[3], theta))
+        radii.append(self.tmp_radius)
+        edges.append(self.cal_reversing_path_edge(wheels[1], theta))
+        radii.append(self.tmp_radius)
 
         return edges, radii
 
