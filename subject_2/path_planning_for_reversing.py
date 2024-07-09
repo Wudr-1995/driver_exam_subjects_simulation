@@ -27,15 +27,7 @@ class PathPlanningMethod:
         if self.garage_type == "reverse":
             return self.reversing_path_plan()
 
-    def reversing_path_plan(self, current_step):
-        if current_step == 0:
-            return reversing_path_plan_step_0()
-        elif current_step == 1:
-            return reversing_path_plan_step_1()
-        else:
-            return reversing_path_plan_step_2()
-
-    def reversing_path_plan_step_0(self):
+    def reversing_path_plan(self):
         start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)
         end_pos = ReverseRelatedMethod.get_position_from_status(self.end_status)
 
@@ -44,6 +36,10 @@ class PathPlanningMethod:
 
         n_start_dir = ReverseRelatedMethod.get_n_from_status(self.start_status)
         n_end_dir = ReverseRelatedMethod.get_n_from_status(self.end_status)
+
+        if start_dir[0] > 0:
+            n_start_dir = -n_start_dir
+            n_end_dir = -n_end_dir
 
         para_start_pos = ReverseRelatedMethod.get_parallel_pos(start_pos, n_start_dir, self.car.get_efficient_min_r())
         para_end_pos = ReverseRelatedMethod.get_parallel_pos(end_pos, n_end_dir, self.car.get_efficient_min_r())
@@ -68,16 +64,6 @@ class PathPlanningMethod:
 
         return start_pos, turn_pos, turn_back_pos, end_pos, circle_center
 
-    def reversing_path_plan_step_1(self):
-        start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)
-        end_pos = ReverseRelatedMethod.get_position_from_status(self.end_status)
-
-        start_dir = ReverseRelatedMethod.get_direction_from_status(self.start_status)
-        end_dir = ReverseRelatedMethod.get_direction_from_status(self.end_status)
-
-        n_start_dir = ReverseRelatedMethod.get_n_from_status(self.start_status)
-        n_end_dir = ReverseRelatedMethod.get_n_from_status(self.end_status)
-
     def reversing_path_range(self):
         vertexs, arrow, wheels = self.car.get_vertex()
         theta = self.car.get_theta()
@@ -92,14 +78,17 @@ class PathPlanningMethod:
         for i in range(len(wheels)):
             edges.append(self.cal_reversing_path_edge(wheels[i], theta))
             radii.append(self.tmp_radius)
-        '''
+            print('radius: ', self.tmp_radius)
+            print('vertexs: ', i, vertexs[i])
 
+        '''
         edges.append(self.cal_reversing_path_edge(vertexs[2], theta))
         radii.append(self.tmp_radius)
         edges.append(self.cal_reversing_path_edge(vertexs[3], theta))
         radii.append(self.tmp_radius)
         edges.append(self.cal_reversing_path_edge(wheels[1], theta))
         radii.append(self.tmp_radius)
+        # print('radius: ', self.tmp_radius)
 
         return edges, radii
 
@@ -108,7 +97,8 @@ class PathPlanningMethod:
         vertex = np.array(vertex)
 
         # the second position
-        turn_pos = vertex - np.linalg.norm(self.turn_pos - self.start_pos) * dir_vec
+        turn_pos = vertex + (self.turn_pos - self.start_pos)
+        # turn_pos = vertex - np.linalg.norm(self.turn_pos - self.start_pos) * dir_vec
 
         center_to_turn_pos = turn_pos - self.circle_center
         delta_theta = np.deg2rad(self.end_status[2] - self.start_status[2])

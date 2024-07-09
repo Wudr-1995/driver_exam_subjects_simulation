@@ -33,7 +33,7 @@ if __name__ == '__main__':
     plt.show()
     '''
 
-    start_status = [0.0, 8.75, 180]
+    start_status = [0, 8.75, 180]
     end_status = [8.1, 1.0, 90]
 
     m_controller = ReversingCarAnimationController(car_l, car_w, min_r, start_status, end_status)
