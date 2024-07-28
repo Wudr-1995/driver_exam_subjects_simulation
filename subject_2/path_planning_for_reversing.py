@@ -64,8 +64,8 @@ class PathPlanningMethod:
 
         return start_pos, turn_pos, turn_back_pos, end_pos, circle_center
 
-    def reversing_path_range(self):
-        vertexs, arrow, wheels = self.car.get_vertex()
+    def reversing_path_range(self, vertexs, arrow, wheels):
+        # vertexs, arrow, wheels = self.car.get_vertex()
         theta = self.car.get_theta()
 
         edges = []
