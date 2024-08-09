@@ -163,10 +163,10 @@ class ReversingCarAnimationController:
            self.car_last_status == 2 and \
            self.car.get_step_status() == 3:
             if self.car.get_y() < self.step_2_lower_edge[1]:
-                print('Coach：停车早了，进库失败')
+                print('Coach：停车晚了，进库失败')
                 self.park_car_successfully = False
             elif self.car.get_y() > self.step_2_upper_edge[1]:
-                print('Coach：停车晚了，进库失败')
+                print('Coach：停车早了，进库失败')
                 self.park_car_successfully = False
 
         if self.car.get_velocity() < 0.001 and \

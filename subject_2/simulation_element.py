@@ -327,10 +327,11 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         car_dir = np.array([np.cos(car.get_theta()), np.sin(car.get_theta())])
         car_pos = np.array([car.get_x(), car.get_y()])
 
+        tail_length = (car.get_length() - car.get_dis_axles()) / 2 + 0.2
         upper_edge_point = car_pos - rest_distance_0 * car_dir
         lower_edge_point = car_pos - rest_distance_1 * car_dir
         if lower_edge_point[1] < 0.0:
-            lower_edge_point += np.array([(0.0 - lower_edge_point[1]) * car_dir[0] / car_dir[1], 0.0 - lower_edge_point[1]])
+            lower_edge_point += np.array([(tail_length - lower_edge_point[1]) * car_dir[0] / car_dir[1], tail_length - lower_edge_point[1]])
 
         return upper_edge_point, lower_edge_point
 
