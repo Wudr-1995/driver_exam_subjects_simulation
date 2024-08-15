@@ -2,8 +2,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+# git@github.com:AtsushiSakai/PythonRobotics.git
+from ReedsSheppPath import reeds_shepp_path_planning as rs
+
 from simulation_element import ReverseRelatedMethod, Car, ReverseGarage
 
+class Custom_Path:
+    def __init__(self):
+        self.ctypes = []
+        self.positions = []
+        self.yaws = []
+        self.directions = []
+
+    def append(self, ctype, position, yaw, direction):
+        self.ctypes.append(ctype)
+        self.positions.append(position)
+        self.yaws.append(yaw)
+        self.directions.append(direction)
+
+    def to_real_world(self, start_status):
+        v_cos = np.cos(-start_status[2])
+        v_sin = np.sin(-start_status[2])
+        ori_x = start_status[0]
+        ori_y = start_status[1]
+        theta = start_status[2]
+        self.positions = [[np.array([v_cos * pos[0][0] + v_sin * pos[0][1] + ori_x,
+                                     -v_sin * pos[0][0] + v_cos * pos[0][1] + ori_y]),
+                           np.array([v_cos * pos[1][0] + v_sin * pos[1][1] + ori_x,
+                                     -v_sin * pos[1][0] + v_cos * pos[1][1] + ori_y])]
+                           for pos in self.positions]
+        self.yaws = [rs.pi_2_pi(yaw + theta) for yaw in self.yaws]
 
 class PathPlanningMethod:
     def __init__(self, car, start_status, end_status, garage_type="reverse"):
@@ -19,6 +47,8 @@ class PathPlanningMethod:
         self.circle_center = None
         self.tmp_radius = None
 
+        self.paths = []
+
     def set_status(self, start_status, end_status):
         self.start_status = start_status
         self.end_status = end_status
@@ -26,6 +56,35 @@ class PathPlanningMethod:
     def plan_path(self):
         if self.garage_type == "reverse":
             return self.reversing_path_plan()
+        
+    def external_reeds_shepp(self):
+        step_size = 0.02
+        max_curvature = (1. / self.car.get_efficient_min_r())
+        tmp_st_status = [self.start_status[0], self.start_status[1], np.deg2rad[self.start_status[2]]]
+        tmp_ed_status = [self.end_status[0], self.end_status[1], np.deg2rad[self.end_status[2]]]
+        paths = rs.generate_path(tmp_st_status, tmp_ed_status,
+                                 1. / self.car.get_efficient_min_r(), step_size)
+        self.paths = []
+        for path in paths:
+            interpolate_dists_list = rs.calc_interpolate_dists_list(path.lengths,
+                                                                    path.ctypes,
+                                                                    max_curvature,
+                                                                    step_size)
+            origin_x, origin_y, origin_yaw = 0.0, 0.0, 0.0
+            m_path = Custom_Path()
+            for (interp_dists, mode, length) in zip(interpolate_dists_list,
+                                                    path.ctypes,
+                                                    path.lengths):
+                x, y, yaw, direction = rs.interpolate(interp_dists[-1], length, mode, max_curvature,
+                                                      origin_x, origin_y, origin_yaw)
+                m_path.append(mode, [np.array([origin_x, origin_y]), np.array([x, y])], [origin_yaw, yaw], direction)
+                origin_x = x
+                origin_y = y
+                origin_yaw = yaw
+            self.paths.append(m_path)
+
+        best_path_index = paths.index(min(paths, key=lambda p: abs(p.L)))
+        return self.paths[best_path_index]
 
     def reversing_path_plan(self):
         start_pos = ReverseRelatedMethod.get_position_from_status(self.start_status)

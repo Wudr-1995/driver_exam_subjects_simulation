@@ -6,7 +6,7 @@ from simulation_element import ReverseRelatedMethod, Car, ReverseGarage, Reverse
 
 class ReversingCarAnimationController:
     def __init__(self, car_l, car_w, min_r, start_status, end_status):
-        self.car = Car(start_status[2], start_status[0], start_status[1], 'rear_axle_center', car_l, car_w, min_r)
+        self.car = Car(start_status[2], start_status[0], start_status[1], 'rear_axle_center', car_l, car_w, 2.6, min_r)
         self.car_last_status = self.car.get_step_status()
         self.garage = ReverseGarage(car_l, car_w)
         self.path_planner = PathPlanningMethod(self.car, start_status, end_status)
@@ -243,15 +243,15 @@ class ReversingCarAnimationController:
             self.step_1_upper_edge, self.step_1_lower_edge = ReverseRelatedMethod.cal_edges_for_step_1(self.car, self.garage, cir_x, cir_y)
             # print('step 1 edges: ', self.step_1_upper_edge, self.step_1_lower_edge)
             self.step_1_edges_cal_status = True
-            if self.step_1_upper_edge[0] is not None and self.step_1_lower_edge[0] is not None:
+            if self.step_1_upper_edge is not None and self.step_1_lower_edge is not None:
                 self.step_1_lower_point.set_offsets(self.step_1_lower_edge)
                 self.step_1_upper_point.set_offsets(self.step_1_upper_edge)
                 self.step_1_lower_point.set_alpha(1.0)
                 self.step_1_upper_point.set_alpha(1.0)
-            if self.step_1_upper_edge[0] is not None:
+            if self.step_1_upper_edge is not None:
                 self.step_1_upper_point.set_offsets(self.step_1_upper_edge)
                 self.step_1_upper_point.set_alpha(1.0)
-            if self.step_1_lower_edge[0] is not None:
+            if self.step_1_lower_edge is not None:
                 self.step_1_lower_point.set_offsets(self.step_1_lower_edge)
                 self.step_1_lower_point.set_alpha(1.0)
 
