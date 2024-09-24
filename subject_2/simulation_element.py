@@ -32,8 +32,12 @@ class PathPlanningRelatedMethod:
 class ReverseRelatedMethod(PathPlanningRelatedMethod):
     step_0_edge_beta = None
     step_0_upper_edge_beta = None
+    step_0_left_edge = None
+    step_0_right_edge = None
     step_1_upper_edge = None
     step_1_lower_edge = None
+    step_3_upper_edge = None
+    step_3_lower_edge = None
 
     def __init__(self):
         pass
@@ -168,8 +172,8 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         solution, info, ier, msg = fsolve(equation_for_edge_step_0, initial_beta, full_output=True)
         if ier == 1:
             ReverseRelatedMethod.step_0_edge_beta = solution
-        else:
-            print("Solution did not converge:", msg)
+        # else:
+        #     print("Solution did not converge:", msg)
 
     @staticmethod
     def cal_fixed_value_for_step1_upper_edge(car, garage, circle_center_x, circle_center_y):
@@ -182,8 +186,8 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         solution, info, ier, msg = fsolve(equation_for_edge_step_1_upper_edge, initial_beta, full_output=True)
         if ier == 1:
             ReverseRelatedMethod.step_1_upper_edge = solution
-        else:
-            print("Solution of upper edeg did not converge:", msg)
+        # else:
+        #     print("Solution of upper edeg did not converge:", msg)
         # print('upper edge: ', solution)
         return ier
 
@@ -205,8 +209,8 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         solution, info, ier, msg = fsolve(equation_for_edge_step_1_lower_edge, initial_beta, full_output=True)
         if ier == 1:
             ReverseRelatedMethod.step_1_lower_edge = solution
-        else:
-            print("Solution of lower edge did not converge:", msg)
+        # else:
+        #     print("Solution of lower edge did not converge:", msg)
         # print('lower edge: ', solution)
         return ier
 
@@ -274,18 +278,26 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
 
         right_edge = circle_center - car.get_efficient_min_r() * n_start_dir
 
+        ReverseRelatedMethod.step_0_left_edge = None
+        ReverseRelatedMethod.step_0_right_edge = None
+
         r = car.get_efficient_min_r() - car.get_width() / 2
         circle_center_x = H - r
         delta_x, delta_y = 0.0, 0.0
         if np.abs(np.rad2deg(car_theta - np.pi / 2.0)) > 0.01:
             delta_x = circle_center_x - para_start_pos[0]
             delta_y = delta_x * start_dir[1] / start_dir[0]
+        else:
+            return None, None
         circle_center_y = para_start_pos[1] + delta_y
         circle_center = np.array([circle_center_x, circle_center_y])
 
         if circle_center_y < L:
             perp_foot = para_start_pos + ((left_ver - para_start_pos) @ start_dir) * start_dir
-            circle_center = perp_foot + start_dir * np.sqrt(r ** 2 - np.linalg.norm(left_ver - perp_foot) ** 2)
+            if r > np.linalg.norm(left_ver - perp_foot):
+                circle_center = perp_foot + start_dir * np.sqrt(r ** 2 - np.linalg.norm(left_ver - perp_foot) ** 2)
+            else:
+                return None, None
 
         left_edge = circle_center - car.get_efficient_min_r() * n_start_dir
 
@@ -329,6 +341,9 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
 
         if left_edge[0] > right_edge[0]:
             return None, None
+
+        ReverseRelatedMethod.step_0_left_edge = left_edge
+        ReverseRelatedMethod.step_0_right_edge = right_edge
 
         return left_edge, right_edge
 
@@ -400,7 +415,17 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         garage_right_vertex = np.array([H + W - 0.08, L])
         R = np.linalg.norm(garage_right_vertex - np.array([circle_center_x, circle_center_y]))
         other_lower_edge = np.arctan2((L - circle_center_y), (H + W - circle_center_x))
-        other_lower_edge -= np.arccos(r / R)
+        if np.abs(r / R) > 1.0:
+            other_lower_edge = None
+        else:
+            other_lower_edge -= np.arccos(r / R)
+
+        r = car.get_efficient_min_r() - car.get_width() / 2
+        garage_left_vertex = np.array([H + 0.08, L])
+        R = np.linalg.norm(garage_left_vertex - np.array([circle_center_x, circle_center_y]))
+        other_upper_edge = 0
+        if r < R:
+            other_upper_edge = None
 
         ier0 = ReverseRelatedMethod.cal_fixed_value_for_step1_upper_edge(car, garage, circle_center_x, circle_center_y)
         ier1 = ReverseRelatedMethod.cal_fixed_value_for_step1_lower_edge(car, garage, circle_center_x, circle_center_y)
@@ -409,17 +434,20 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
             upper_edge = np.array([circle_center_x + car.get_efficient_min_r() * np.cos(ReverseRelatedMethod.step_1_upper_edge[0]), \
                                    circle_center_y + car.get_efficient_min_r() * np.sin(ReverseRelatedMethod.step_1_upper_edge[0])])
         if ier1 == 1:
-            if ReverseRelatedMethod.step_1_lower_edge[0] < other_lower_edge:
+            if other_lower_edge is not None and ReverseRelatedMethod.step_1_lower_edge[0] < other_lower_edge:
                 ReverseRelatedMethod.step_1_lower_edge[0] = other_lower_edge
             lower_edge = np.array([circle_center_x + car.get_efficient_min_r() * np.cos(ReverseRelatedMethod.step_1_lower_edge[0]), \
                                    circle_center_y + car.get_efficient_min_r() * np.sin(ReverseRelatedMethod.step_1_lower_edge[0])])
 
-        if lower_edge is None or upper_edge is None:
-            return None, None
+        # if other_lower_edge is None or other_upper_edge is None:
+        #     return None, None
 
-        if (upper_edge[1] < lower_edge[1]) or \
-           (upper_edge[0] is None) or \
-           (lower_edge[0] is None):
+        # if lower_edge is None or upper_edge is None:
+        #     return None, None
+
+        if (upper_edge is None) or \
+           (lower_edge is None) or \
+           (upper_edge[1] < lower_edge[1]):
             return None, None
 
         '''
@@ -495,44 +523,63 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
 
         n_cur_dir = np.array([-cur_dir[1], cur_dir[0]])
 
+        left_edge, right_edge = None, None
+
         para_cur_pos = ReverseRelatedMethod.get_parallel_pos(cur_pos, n_cur_dir, eff_min_r)
         para_cur_to_left_ver = left_ver - para_cur_pos
         proj_len = np.dot(para_cur_to_left_ver, cur_dir)
         perpen_foot = proj_len * cur_dir + para_cur_pos
         min_dis = np.linalg.norm(perpen_foot - left_ver)
-        shift_dis = proj_len - np.sqrt(r ** 2 - min_dis ** 2)
-        left_edge = cur_pos + shift_dis * cur_dir # lower edge from the inner side
+        shift_dis = proj_len - np.sqrt(r ** 2 - min_dis ** 2) if r > min_dis else None
+        if shift_dis is not None:
+            left_edge = cur_pos + shift_dis * cur_dir # lower edge from the inner side
 
         # para_cur_pos = ReverseRelatedMethod.get_parallel_pos(cur_pos, n_cur_dir, eff_min_r)
         dis_to_right_edge = right_ver[0] - para_cur_pos[0]
-        delta_x = R - dis_to_right_edge if np.abs(car_theta - np.pi / 2 > 0.001) else 0.0
-        delta_y = delta_x * (cur_dir[1] / cur_dir[0]) if np.abs(car_theta - np.pi / 2 > 0.001) else 0.0
+        delta_x = dis_to_right_edge - R if np.abs(car_theta - np.pi / 2) > 0.001 else 0.0
+        delta_y = delta_x * (cur_dir[1] / cur_dir[0]) if np.abs(car_theta - np.pi / 2) > 0.001 else 0.0
         right_edge = cur_pos + np.array([delta_x, delta_y])
 
         upper_edge, lower_edge = None, None
+        ReverseRelatedMethod.step_3_upper_edge = upper_edge
+        ReverseRelatedMethod.step_3_lower_edge = lower_edge
+        if left_edge is None or right_edge is None:
+            return None, None
+        # print('in the function, check point 2: ', left_edge, right_edge, right_ver[0] - para_cur_pos[0], R, delta_x, delta_y, car_theta)
         R = eff_min_r + car.get_width() * 0.5
         R = np.sqrt(R ** 2 + (car.get_length() - tail_len) ** 2)
         if np.abs(car_theta - np.pi / 2) > 0.001:
-            para_cur_pos = ReverseRelatedMethod.get_parallel_pos(cur_pos, n_cur_dir, eff_min_r)
+            # para_cur_pos = ReverseRelatedMethod.get_parallel_pos(cur_pos, n_cur_dir, eff_min_r)
             D = S + L - para_cur_pos[1]
             delta_y = D - R
             delta_x = delta_y / (cur_dir[1] / cur_dir[0])
             upper_edge = cur_pos + np.array([delta_x, delta_y])
         else:
             upper_edge = np.array([cur_pos[0], S + L - R])
+
+        # print('in the function, check point 2: ', left_edge, right_edge, right_ver[0] - para_cur_pos[0], R, delta_x, delta_y, car_theta, upper_edge)
+
         if cur_dir[0] - 0.0 > 0.001:
-            upper_edge = right_edge
+            if right_edge[1] < upper_edge[1]:
+                upper_edge = right_edge
             lower_edge = left_edge
         else:
             lower_edge = left_edge if left_edge[1] > right_edge[1] else right_edge
 
+        # print('in the function, check point 1: ', upper_edge, lower_edge)
+
+        ReverseRelatedMethod.step_3_upper_edge = upper_edge
+        ReverseRelatedMethod.step_3_lower_edge = lower_edge
         if lower_edge[1] > upper_edge[1]:
             return None, None
+
+        ReverseRelatedMethod.step_3_upper_edge = upper_edge
+        ReverseRelatedMethod.step_3_lower_edge = lower_edge
 
         return upper_edge, lower_edge
 
     @staticmethod
-    def if_in_the_garage(car, garage):
+    def is_car_in_parking_slot(car, garage):
         c_vertex, _, _ = car.get_vertex()
         g_v = garage.get_vertex()
         def cross_product(v1, v2):
@@ -569,7 +616,7 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         return result
 
     @staticmethod
-    def if_in_the_initial_range(car, garage):
+    def is_car_in_returning_slot(car, garage):
         theta = car.get_theta()
         wheelbase = car.get_dis_axles()
         car_dir = np.array([np.cos(theta), np.sin(theta)])
@@ -595,7 +642,7 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         return result
 
     @staticmethod
-    def car_can_reach_the_initial_straight(car, garage, left=True):
+    def can_car_reach_initial_position_straight(car, garage, left=True):
         theta = car.get_theta()
         car_pos = np.array([car.get_x(), car.get_y()])
         edges = garage.get_init_edge()
@@ -608,15 +655,17 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
         y_proj = car_pos[1] - dis_to_edge * np.tan(theta)
         result = False
 
-        # print('in the function of car_can_reach_the_initial_straight: ', y_proj, edge)
         if (y_proj > edge[0][1]) and \
            (y_proj < edge[1][1]):
             result = True
 
+        # print('checking ReverseRelatedMethod.can_car_reach_initial_position_straight ', edge[0], edge[1], y_proj, dis_to_edge, car_pos, result)
+
         return result
 
+    """
     @staticmethod
-    def car_can_get_into_the_garage(car, garage):
+    def can_car_get_into_parking_slot(car, garage):
         left_cir_x, left_cir_y, _ = car.get_turnning_circle_center(left=True)
         right_cir_x, right_cir_y, _ = car.get_turnning_circle_center()
         step_0_edge = ReverseRelatedMethod.cal_edges_for_step_0(car, garage)
@@ -626,6 +675,7 @@ class ReverseRelatedMethod(PathPlanningRelatedMethod):
             return False
         else:
             return True
+    """
 
     @staticmethod
     def cal_turn_pos(car, start_pos, start_dir, end_pos, end_dir):
@@ -717,6 +767,8 @@ class Car:
         self.cir_y = 0.0
         self.phi = 0.0
 
+        self.steering_wheel_angle = 0.0 # -1.0 to 1.0
+
         self.length = length
         self.width = width
 
@@ -724,7 +776,6 @@ class Car:
         self.cur_rear_radius = -1.0
         self.cur_front_radius = -1.0
         self.min_r = min_r # only for the weight_center model, a coarse model
-        self.max_c = 1. / min_r
 
         self.continous_flag = False
         self.last_frame_status = 0 # -1, turn left, 0, straight, 1, turn right
@@ -743,7 +794,12 @@ class Car:
         self.rear_min_r = self.wheelbase / np.tan(self.max_steering_angle)
         self.front_min_r = self.wheelbase / np.sin(self.max_steering_angle)
 
-        self.efficient_min_r = self.min_r if self.car_type == 'weight_center' else self.rear_min_r
+        self.efficient_min_r = self.rear_min_r
+        # self.efficient_min_r = self.min_r if self.car_type == 'weight_center' else self.rear_min_r
+        self.max_c = 1. / self.efficient_min_r
+
+        self._observers = []
+        self._state = None
 
         # moving parameters
         self.velocity = 0.0
@@ -761,6 +817,23 @@ class Car:
 
         # for recording the step status of the Car
         self.step_status = 0
+
+    def add_observer(self, observer):
+        self._observers.append(observer)
+
+    def remove_observer(self, observer):
+        self._observers.remove(observer)
+
+    def set_state(self, state):
+        self._state = state
+        self._notify_observers()
+
+    def get_state(self):
+        return self._state
+
+    def _notify_observers(self):
+        for observer in self._observers:
+            observer.update(self._state)
 
     def get_vertex(self):
         vertexs = None
@@ -886,6 +959,22 @@ class Car:
 
         self.arrow = ax.annotate("", xy=arrow[1], xytext=arrow[0], arrowprops=dict(facecolor='black', shrink=0.05))
 
+    def get_current_center(self, left=True):
+        if left is True:
+            phi = self.theta - np.pi / 2
+            n_x = np.cos(self.theta + np.pi / 2)
+            n_y = np.sin(self.theta + np.pi / 2)
+            cir_x = self.x + n_x * self.efficient_min_r
+            cir_y = self.y + n_y * self.efficient_min_r
+        else:
+            phi = self.theta + np.pi / 2
+            n_x = np.cos(self.theta - np.pi / 2)
+            n_y = np.sin(self.theta - np.pi / 2)
+            cir_x = self.x + n_x * self.efficient_min_r
+            cir_y = self.y + n_y * self.efficient_min_r
+
+        return cir_x, cir_y, phi
+
     def get_turnning_circle_center(self, left=True):
         self.phi = 0.0
         if self.turn_left > self.turn_right or (left is True):
@@ -984,6 +1073,7 @@ class Car:
             self.y = cir_y + self.efficient_min_r * np.sin(phi)
             self.theta -= self.reversing_status * self.angular_velocity
 
+        self.set_state([self.x, self.y, self.theta, self.velocity, self.reversing_status, self.steering_wheel_angle])
         self.coordinates_update()
         return [self.line_0, self.line_1, self.line_2, self.line_3, self.arrow]
 
@@ -1005,6 +1095,20 @@ class Car:
 
         self.arrow.xy = arrow[1]
         self.arrow.set_position(arrow[0])
+
+    def update_status(self, x, y, yaw, v, reversing_status):
+        self.x = x
+        self.y = y
+        self.theta = yaw
+        self.velocity = v
+        self.reversing_status = reversing_status
+
+        if self.turn_left > self.turn_right:
+            self.steering_wheel_angle = -1.0
+        elif self.turn_left < self.turn_right:
+            self.steering_wheel_angle = 1.0
+        else:
+            self.steering_wheel_angle = 0.0
 
     def get_width(self):
         return self.width

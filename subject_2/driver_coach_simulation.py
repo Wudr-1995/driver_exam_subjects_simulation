@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 # from path_planning_for_reversing import PathPlanningMethod
 # from simulation_element import ReverseRelatedMethod, Car, ReverseGarage, AnimationController
 from animation_controller import ReversingCarAnimationController
-from simpler_animation_controller import ReverseParkingAnimationController
+from coach_animation_controller import ReverseParkingAnimationController
 
 if __name__ == '__main__':
     car_l = 4.6
@@ -35,7 +35,8 @@ if __name__ == '__main__':
     '''
 
     # start_status = [0, 8.75, 178]
-    start_status = [1.9943301547061152, 8.384488063516272, np.rad2deg(3.1622005175104473)]
+    # start_status = [1.9943301547061152, 8.384488063516272, np.rad2deg(3.1622005175104473)]
+    start_status = [3.2940541198392985, 8.411276390423279, np.rad2deg(3.1622005175104473)]
     end_status = [8.1, 1.0, 90]
 
     # m_controller = ReverseParkingAnimationController(car_l, car_w, min_r, start_status, end_status)

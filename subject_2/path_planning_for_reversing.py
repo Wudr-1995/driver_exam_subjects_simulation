@@ -33,6 +33,12 @@ class Custom_Path:
                            for pos in self.positions]
         self.yaws = [rs.pi_2_pi(yaw + theta) for yaw in self.yaws]
 
+    def print(self):
+        print(f'ctypes: {self.ctypes}')
+        print(f'positions: {self.positions}')
+        print(f'yaws: {self.yaws}')
+        print(f'directions: {self.directions}')
+
 class PathPlanningMethod:
     def __init__(self, car, start_status, end_status, garage_type="reverse"):
         self.car = car
@@ -60,16 +66,14 @@ class PathPlanningMethod:
     def external_reeds_shepp(self):
         step_size = 0.02
         max_curvature = (1. / self.car.get_efficient_min_r())
-        tmp_st_status = [self.start_status[0], self.start_status[1], np.deg2rad[self.start_status[2]]]
-        tmp_ed_status = [self.end_status[0], self.end_status[1], np.deg2rad[self.end_status[2]]]
+        tmp_st_status = [self.start_status[0], self.start_status[1], np.deg2rad(self.start_status[2])]
+        tmp_ed_status = [self.end_status[0], self.end_status[1], np.deg2rad(self.end_status[2])]
         paths = rs.generate_path(tmp_st_status, tmp_ed_status,
                                  1. / self.car.get_efficient_min_r(), step_size)
         self.paths = []
         for path in paths:
             interpolate_dists_list = rs.calc_interpolate_dists_list(path.lengths,
-                                                                    path.ctypes,
-                                                                    max_curvature,
-                                                                    step_size)
+                                                                    max_curvature * step_size)
             origin_x, origin_y, origin_yaw = 0.0, 0.0, 0.0
             m_path = Custom_Path()
             for (interp_dists, mode, length) in zip(interpolate_dists_list,
@@ -83,7 +87,10 @@ class PathPlanningMethod:
                 origin_yaw = yaw
             self.paths.append(m_path)
 
+        if len(paths) == 0:
+            return None
         best_path_index = paths.index(min(paths, key=lambda p: abs(p.L)))
+        self.paths[best_path_index].to_real_world(tmp_st_status)
         return self.paths[best_path_index]
 
     def reversing_path_plan(self):
